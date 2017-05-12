@@ -1,6 +1,7 @@
 from sys import argv
 from traceback import print_exc
 
+from requests import request
 from websocket import WebSocketApp
 
 
@@ -10,13 +11,13 @@ def trace(function):
             return function(*args, **kwargs)
         except Exception:
             print_exc()
-            raise
+            exit()
     return wrap
 
 
 class WebSockets():
 
-    URL = 'wss://premws-pt2.365lpodds.com/zap/?uid=7187482066279285'
+    URL = 'wss://premws-pt2.365lpodds.com/zap'
 
     DELIMITERS_MESSAGE = '\x00'
     DELIMITERS_RECORD = '\x01'
@@ -30,7 +31,19 @@ class WebSockets():
 
     @trace
     def __init__(self, id):
-        pass
+        self.id = id
+        self.session_id = self.get_session_id()
+
+    @trace
+    def get_session_id(self):
+        response = None
+        try:
+            response = request(method='GET', url='https://www.bet365.com/?#/AS/B1/')
+        except Exception:
+            pass
+        if not response:
+            return
+        return response.cookies['pstk']
 
     @trace
     def open(self):
@@ -46,6 +59,10 @@ class WebSockets():
     @trace
     def on_open(self, _):
         self.log('Open', None)
+        topic = '__time,S_%s' % self.session_id
+        message = '\x23\x01\x17%s%s\x00' % (chr(len(topic) + 1), topic)
+        self.log(message)
+        self._connection.send(bytearray(message, 'utf-8'))
 
     @trace
     def on_close(self, _):
@@ -63,18 +80,24 @@ class WebSockets():
     @trace
     def log(self, prefix, suffix):
         if prefix and suffix:
-            prefix = prefix.ljust(28, ' ')
-            suffix = repr(suffix)
+            prefix = repr(prefix)
             print('[+]', prefix, ':', suffix)
             return
         if prefix:
             print('[+]', prefix)
             return
 
+    @trace
+    def send(self, type, headers, data):
+        message = [type, self._get_headers(headers)]
+        if data:
+            message.append(data)
+        self._connection.send(bytearray(''.join(message), 'utf-8'))
+
 
 @trace
 def main(options):
-    web_sockets = WebSockets(argv[1])
+    web_sockets = WebSockets(options[1])
     web_sockets.open()
 
 
