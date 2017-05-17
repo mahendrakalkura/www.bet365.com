@@ -1,122 +1,126 @@
-from sys import argv
-from traceback import print_exc
-
 from requests import request
 from ws4py.client.threadedclient import WebSocketClient
 
 
-def trace(function):
-    def wrap(*args, **kwargs):
-        try:
-            return function(*args, **kwargs)
-        except Exception:
-            print_exc()
-            exit()
-    return wrap
-
-
 class WebSockets(WebSocketClient):
 
-    URL = u'wss://premws-pt1.365lpodds.com/zap/'
+    _URLS_CONNECTION = u'wss://premws-pt2.365lpodds.com/zap/'
+    _URLS_SESSION_ID = u'https://www.bet365.com/?#/AS/B1/'
 
-    HEADERS = [
+    _HEADERS = [
         (u'Sec-WebSocket-Extensions', u'permessage-deflate;client_max_window_bits'),
         (u'Sec-WebSocket-Protocol', u'zap-protocol-v1'),
         (u'Sec-WebSocket-Version', u'13'),
     ]
 
-    DELIMITERS_MESSAGE = u'\x08'
-    DELIMITERS_RECORD = u'\x01'
-    DELIMITERS_FIELD = u'\x02'
+    _DELIMITERS_RECORD = u'\x01'
+    _DELIMITERS_FIELD = u'\x02'
+    _DELIMITERS_HANDSHAKE = u'\x03'
+    _DELIMITERS_MESSAGE = u'\x08'
 
-    TYPES_TOPIC_LOAD_MESSAGE = u'\x14'
-    TYPES_DELTA_MESSAGE = u'\x15'
-    TYPES_SUBSCRIBE = u'\x16'
-    TYPES_PING_CLIENT = u'\x19'
+    _ENCODINGS_NONE = u'\x00'
 
-    TOPICS = [
-        u'CONFIG_1_3',
-        u'OVInPlay_1_3',
-        u'Media_L1_Z3',
-        u'XL_L1_Z3_C1_W5',
+    _TYPES_TOPIC_LOAD_MESSAGE = u'\x14'
+    _TYPES_DELTA_MESSAGE = u'\x15'
+    _TYPES_SUBSCRIBE = u'\x16'
+    _TYPES_PING_CLIENT = u'\x19'
+    _TYPES_TOPIC_STATUS_NOTIFICATION = u'\x23'
+
+    _TOPICS = [
+        '__host',
+        'CONFIG_1_3',
+        'HL_L1_Z3_C1_W1',
+        'HR_L1_Z3_C1_W1',
+        'InPlay_1_3',
+        'LHInPlay_1_3',
+        'Media_l1_Z3',
+        'OVInPlay_1_3',
+        'XI_1_3',
+        'XL_L1_Z3_C1_W1',
     ]
 
-    @trace
-    def __init__(self, id):
-        self.id = id
-        super(WebSockets, self).__init__(self.URL, headers=self.HEADERS)
-        self.session_id = get_session_id()
+    _MESSAGES_SESSION_ID = u'%s%sP%s__time,S_%%s%s' % (
+        _TYPES_TOPIC_STATUS_NOTIFICATION,
+        _DELIMITERS_HANDSHAKE,
+        _DELIMITERS_RECORD,
+        _ENCODINGS_NONE,
+    )
+    _MESSAGES_SUBSCRIPTION = u'%s%s%%s%s' % (
+        _TYPES_SUBSCRIBE,
+        _ENCODINGS_NONE,
+        _DELIMITERS_RECORD,
+    )
 
-    @trace
+    def __init__(self):
+        super(WebSockets, self).__init__(self._URLS_CONNECTION, headers=self._HEADERS)
+
     def connect(self):
-        if not self.session_id:
-            print('Invalid Session ID')
-            return
+        print(u'opening connection...')
         super(WebSockets, self).connect()
 
-    @trace
+    def disconnect(self):
+        print(u'closing connection...')
+
     def opened(self):
-        print('Opened')
-        message = u'#\x03P\x01__time,S_%s\x00' % self.session_id
-        self.send(message)
+        print(u'opened connection')
+        session_id = self._fetch_session_id()
+        if not session_id:
+            self.disconnect()
+            return
+        message = self._MESSAGES_SESSION_ID % session_id
+        self._send(message)
 
-    @trace
     def closed(self, code, reason=None):
-        print('Closed', code, reason)
+        print(u'closed connection')
+        print(u'code:', code)
+        print(u'reason:', reason)
 
-    @trace
     def received_message(self, message):
         message = unicode(message)
-        print('<=', repr(message))
-        message = self.decode(message)
-        if message[0][0] == u'100':
-            message = u'\x16\x00' + u','.join(self.TOPICS) + u'\x01\x00'
-            self.send(message)
+        print(u'received message:', message)
+        message = message.split(self._DELIMITERS_MESSAGE)
+        while True:
+            a = message.pop()
+            b = a[0]
+            if b == u'1':
+                for topic in self._TOPICS:
+                    message = self._MESSAGES_SUBSCRIPTION % topic
+                    self._send(message)
+                return
+            if b in [self._TYPES_TOPIC_LOAD_MESSAGE, self._TYPES_DELTA_MESSAGE]:
+                matches = a.split(self._DELIMITERS_RECORD)
+                path_config = matches[0].split(self._DELIMITERS_FIELD)
+                pair = path_config.pop()
+                read_it_message = pair[1:]
+                l = a[(len(matches[0]) + 1):]
+                print(a, b, matches, path_config, pair, read_it_message, l)
+                return
+            if not message:
+                break
+
+    def _send(self, message):
+        print(u'sending message:', repr(message))
+        self.send(message)
+
+    def _fetch_session_id(self):
+        print(u'fetching session id...')
+        response = None
+        try:
+            response = request(method=u'GET', url=self._URLS_SESSION_ID)
+        except Exception:
+            pass
+        if not response:
+            print(u'session id: N/A')
             return
-        if message[0][0] == u'\x14EMPTY':
-            message = u'\x16\x006V64507930C1A_1_3\x01\x00'
-            self.send(message)
-            message = u'\x16\x0015332427912M1_1_3\x01\x00'
-            self.send(message)
-            return
-
-    @trace
-    def send(self, message):
-        print('=>', repr(message))
-        message = bytearray(message, 'utf-8')
-        super(WebSockets, self).send(message)
-
-    @trace
-    def decode(self, message):
-        message = message.strip(self.DELIMITERS_MESSAGE)
-        message = message.split(self.DELIMITERS_RECORD)
-        message = [m.split(self.DELIMITERS_FIELD) for m in message]
-        message = [[item for item in items if item] for items in message]
-        message = [m for m in message if m]
-        return message
+        session_id = response.cookies[u'pstk']
+        print(u'session id:', session_id)
+        return session_id
 
 
-@trace
-def get_session_id():
-    response = None
+if __name__ == u'__main__':
     try:
-        response = request(method='GET', url='https://www.bet365.com/?#/AS/B1/')
-    except Exception:
-        pass
-    if not response:
-        return
-    return response.cookies['pstk']
-
-
-@trace
-def main(options):
-    try:
-        web_sockets = WebSockets(options[1])
+        web_sockets = WebSockets()
         web_sockets.connect()
         web_sockets.run_forever()
     except KeyboardInterrupt:
-        web_sockets.close()
-
-
-if __name__ == '__main__':
-    main(argv)
+        web_sockets.disconnect()
