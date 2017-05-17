@@ -14,5 +14,5 @@ How to run?
 ```
 $ cd www.bet365.com
 $ workon www.bet365.com
-$ python manage.py $ID
+$ python manage.py
 ```
