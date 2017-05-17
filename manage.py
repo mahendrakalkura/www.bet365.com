@@ -1,10 +1,12 @@
+from pprint import pprint
+
 from requests import request
 from ws4py.client.threadedclient import WebSocketClient
 
 
 class WebSockets(WebSocketClient):
 
-    _URLS_CONNECTION = u'wss://premws-pt2.365lpodds.com/zap/'
+    _URLS_CONNECTION = u'wss://premws-pt1.365lpodds.com/zap/'
     _URLS_SESSION_ID = u'https://www.bet365.com/?#/AS/B1/'
 
     _HEADERS = [
@@ -79,24 +81,22 @@ class WebSockets(WebSocketClient):
         message = unicode(message)
         print(u'received message:', message)
         message = message.split(self._DELIMITERS_MESSAGE)
-        while True:
+        while len(message):
             a = message.pop()
             b = a[0]
             if b == u'1':
                 for topic in self._TOPICS:
-                    message = self._MESSAGES_SUBSCRIPTION % topic
-                    self._send(message)
-                return
+                    m = self._MESSAGES_SUBSCRIPTION % topic
+                    self._send(m)
+                continue
             if b in [self._TYPES_TOPIC_LOAD_MESSAGE, self._TYPES_DELTA_MESSAGE]:
                 matches = a.split(self._DELIMITERS_RECORD)
                 path_config = matches[0].split(self._DELIMITERS_FIELD)
                 pair = path_config.pop()
                 read_it_message = pair[1:]
                 l = a[(len(matches[0]) + 1):]
-                print(a, b, matches, path_config, pair, read_it_message, l)
-                return
-            if not message:
-                break
+                pprint([read_it_message, l], width=1)
+                continue
 
     def _send(self, message):
         print(u'sending message:', repr(message))
