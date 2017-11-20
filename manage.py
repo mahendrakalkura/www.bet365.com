@@ -31,14 +31,14 @@ class WebSockets(WebSocketClient):
     _TOPICS = [
         '__host',
         'CONFIG_1_3',
-        'HL_L1_Z3_C1_W1',
-        'HR_L1_Z3_C1_W1',
+        'HL_L1_Z3_C1_W4',
+        'HR_L1_Z3_C1_W4',
         'InPlay_1_3',
         'LHInPlay_1_3',
         'Media_l1_Z3',
         'OVInPlay_1_3',
         'XI_1_3',
-        'XL_L1_Z3_C1_W1',
+        'XL_L1_Z3_C1_W4',
     ]
 
     _MESSAGES_SESSION_ID = u'%s%sP%s__time,S_%%s%s' % (
@@ -47,6 +47,7 @@ class WebSockets(WebSocketClient):
         _DELIMITERS_RECORD,
         _ENCODINGS_NONE,
     )
+
     _MESSAGES_SUBSCRIPTION = u'%s%s%%s%s' % (
         _TYPES_SUBSCRIBE,
         _ENCODINGS_NONE,
