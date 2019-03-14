@@ -7,7 +7,7 @@ from ws4py.client.threadedclient import WebSocketClient
 class WebSockets(WebSocketClient):
 
     _URLS_CONNECTION = u'wss://premws-pt1.365lpodds.com/zap/'
-    _URLS_SESSION_ID = u'https://www.bet365.com/?#/AS/B1/'
+    _URLS_SESSION_ID = u'https://www.bet365.com.cy/en/?#/AS/B1/'
 
     _HEADERS = [
         (u'Sec-WebSocket-Extensions', u'permessage-deflate;client_max_window_bits'),
@@ -31,14 +31,9 @@ class WebSockets(WebSocketClient):
     _TOPICS = [
         '__host',
         'CONFIG_1_3',
-        'HL_L1_Z3_C1_W4',
-        'HR_L1_Z3_C1_W4',
-        'InPlay_1_3',
         'LHInPlay_1_3',
         'Media_l1_Z3',
-        'OVInPlay_1_3',
         'XI_1_3',
-        'XL_L1_Z3_C1_W4',
     ]
 
     _MESSAGES_SESSION_ID = u'%s%sP%s__time,S_%%s%s' % (
